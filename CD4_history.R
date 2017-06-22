@@ -7,6 +7,7 @@ demog_data = read.xls ("/Users/frances/Dropbox/HIV/demographics-scan-dates-hiv-c
 
 # These are all the spreadsheets I know of that contain CD4 data
 cd4_data_2017 = read.xls("/Volumes/MRI/UserFolders/Frances/!HIV_spreadsheets/2017/CD4_CD8_VL_20170131_final.xlsx",header=TRUE,sep=",")
+cd4_data_2017b = read.csv("/Users/Frances/Dropbox/HIV/CD4_Per_CD4_Count.csv",header=TRUE,sep=",")
 cd4_data_2015 = read.xls("/Volumes/MRI/UserFolders/Frances/!HIV_spreadsheets/2015/Copy of R01_Neuro_7yr_Demographic_Clinical_20150820_rawdata.xlsx",header=TRUE,sep=",")
 cd4_data_2014a = read.xls("/Volumes/MRI/UserFolders/Frances/!HIV_spreadsheets/2014/CD4_CD8_CD4Percent_CD8Percent.xlsx",header=TRUE,sep=",")
 cd4_data_2014b=read.xls("/Volumes/MRI/UserFolders/Frances/!HIV_spreadsheets/2014/Neuroimaging_LabResults_20141204_final.xlsx",header=TRUE,sep=",")
@@ -36,19 +37,23 @@ cd4_data_2014a=merge(cd4_data_2014a,cd4_data_2014a_4,all=TRUE)
 # SID
 colnames(cd4_data_2014a)[(names(cd4_data_2014a) == "studyid")] <- "SID"
 colnames(cd4_data_2014b)[(names(cd4_data_2014b) == "Subject.ID")] <- "SID"
+colnames(cd4_data_2017b)[(names(cd4_data_2017b) == "studyid")] <- "SID"
 #lab.date
 colnames(cd4_data_2017)[(names(cd4_data_2017) == "Lab.result.Date")] <- "lab.date"
 colnames(cd4_data_2015)[(names(cd4_data_2015) == "LAB.REPORT.DATE")] <- "lab.date"
 colnames(cd4_data_2014a)[(names(cd4_data_2014a) == "Visit_Date")] <- "lab.date"
 colnames(cd4_data_2014b)[(names(cd4_data_2014b) == "Lab.Result.Date")] <- "lab.date"
+colnames(cd4_data_2017b)[(names(cd4_data_2017b) == "visit_date")] <- "lab.date"
 #CD4.count
 colnames(cd4_data_2017)[(names(cd4_data_2017) == "CD4.absolute")] <- "CD4.count"
 colnames(cd4_data_2015)[(names(cd4_data_2015) == "CD4.ABS.COUNT")] <- "CD4.count"
 colnames(cd4_data_2014b)[(names(cd4_data_2014b) == "CD4.abs.count")] <- "CD4.count"
+colnames(cd4_data_2017b)[(names(cd4_data_2017b) == "cd4_counts")] <- "CD4.count"
 #CD4.percent
 colnames(cd4_data_2017)[(names(cd4_data_2017) == "CD4.percentage")] <- "CD4.percent"
 colnames(cd4_data_2015)[(names(cd4_data_2015) == "CD4.PERCENTAGE")] <- "CD4.percent"
 colnames(cd4_data_2014b)[(names(cd4_data_2014b) == "CD4.Percentage")] <- "CD4.percent"
+colnames(cd4_data_2017b)[(names(cd4_data_2017b) == "cd4_per")] <- "CD4.percent"
 
 #CD8.count
 colnames(cd4_data_2017)[(names(cd4_data_2017) == "CD8.absolute")] <- "CD8.count"
@@ -60,14 +65,15 @@ cd4_data_2014a$lab.date.correct=as.Date(cd4_data_2014a$lab.date,"%d%B%Y")
 cd4_data_2014b$lab.date.correct=as.Date(cd4_data_2014b$lab.date,"%Y-%m-%d")#
 cd4_data_2015$lab.date.correct=as.Date(cd4_data_2015$lab.date,"%Y-%m-%d")#
 cd4_data_2017$lab.date.correct=as.Date(cd4_data_2017$lab.date,"%Y-%m-%d")
+cd4_data_2017b$lab.date.correct=as.Date(cd4_data_2017b$lab.date,"%d-%B-%y")
 
 #Merge relevant portions of the CD4 dataframes using row concatenation
 d1<-rbind(x=cd4_data_2017[,c('SID','lab.date.correct','CD4.count','CD4.percent')], y=cd4_data_2015[,c('SID','lab.date.correct','CD4.count','CD4.percent')]) 
 d2<-rbind(x=d1[,c('SID','lab.date.correct','CD4.count','CD4.percent')], y=cd4_data_2014a[,c('SID','lab.date.correct','CD4.count','CD4.percent')]) 
 d3<-rbind(x=d2[,c('SID','lab.date.correct','CD4.count','CD4.percent')], y=cd4_data_2014b[,c('SID','lab.date.correct','CD4.count','CD4.percent')]) 
-d4=unique(d3) #remove duplicate rows
-
-d4=na.omit(d4) #remove NAs
+d4<-rbind(x=d3[,c('SID','lab.date.correct','CD4.count','CD4.percent')], y=cd4_data_2017b[,c('SID','lab.date.correct','CD4.count','CD4.percent')]) 
+d4=unique(d4) #remove duplicate rows
+d4=d4[!is.na(d4$CD4.count),] #remove NAs
 table(d4$SID) # How many CD4 measurements for each subject?
 length(unique(d4$SID)) #131 - seems like too many subjects? Because there are CD4 measures for some controls in 2015/2016!
 
@@ -84,7 +90,7 @@ cd4_data_all_HIV<-merge(x=d4, y=d5, by.x ="SID",by.y ="PID")
 cd4_data_all_HIV=cd4_data_all_HIV[cd4_data_all_HIV$status=="HIV",] #I have some CD4 data for 81 of 85 subjects, but nothing early for 17 of them
 cd4_data_all_HIV <- cd4_data_all_HIV[order(cd4_data_all_HIV$SID, cd4_data_all_HIV$lab.date.correct,decreasing=FALSE),]
 table(cd4_data_all_HIV$SID)
-length(unique(cd4_data_all_HIV$SID)) #I have some CD4 data for 81 of 85 
+length(unique(cd4_data_all_HIV$SID)) #I have some CD4 data for 85 of 85 
 #setdiff(HIV$ID,unique(cd4_data_all_HIV$ID)) #no CD4 values for 121, 139, 154 and PHRI?? First 3 not scanned again after 5 years and Ken has nadirs
 
 # Now have cd4_data_all_HIV to work with
@@ -109,18 +115,18 @@ test$age_at_nadir_CD4_percent=difftime(test$nadir_CD4percent_date,as.Date(test$B
 
 # Which ones am I missing data for?
 # Identify 18 children who were older than 12 weeks at their first avail CD4 measure
-missing_early=test[test$age_at_first_lab>12,c('ID', 'PID')] #100 104 105 107 136 165 190 194 195 208 209 214 215 216 86 95  97  98 
+missing_early=test[test$age_at_first_lab>12,c('ID', 'PID')] #none
 
 # Identify children who were more than 6 moths younger at their last avail CD4 measure than their last scan age
 age9=test[!is.na(test$Scan.date.9yrs.Skyra),]
-missing_age9=age9[difftime(age9$Scan.date.9yrs.Skyra,age9$latest)>180,c('ID','PID')] #153, 183
+missing_age9=age9[difftime(age9$Scan.date.9yrs.Skyra,age9$latest)>180,c('ID','PID')] #153, 183 PHRI
 age7=test[!is.na(test$Scan.date.7yrs),]
-missing_age7=age7[difftime(age7$Scan.date.7yrs,age7$latest)>180,c('ID','PID')] #214 - already in missing early
+missing_age7=age7[difftime(age7$Scan.date.7yrs,age7$latest)>180,c('ID','PID')] #214 
 
-count(cd4_data_all_HIV$ID)$x[count(cd4_data_all_HIV$ID)$freq<25] #only add 199, has 22 visits
-#These 18 all less than 25 visit dates: 100 104 105 107 136 165 190 194 195 199 208 209 214 215 216 95  97  98
+count(cd4_data_all_HIV$ID)$x[count(cd4_data_all_HIV$ID)$freq<25] #only 3 less than 20 though
+#These all less than 25 visit dates: 121 (13 visits) 139 194 (19 visits) 199 214 (19 visits) 215 216 PHRI
 
-need_data=rbind(missing_early,missing_age9) # also add PHRI
+need_data=rbind(missing_early,missing_age9) # 153, 183, 214, also add PHRI
 ########################################################################
 # source(compare_nadirCD4_Ken.R) # Check Ken's nadir CD4 against mine to get ones that disagree
 need_data=rbind(need_data,disagree)
@@ -138,7 +144,7 @@ c1=unique(c1) #remove duplicate rows
 c1=na.omit(c1)
 
 cd8_data_all_HIV<-merge(x=c1, y=d5, by.x ="SID",by.y ="PID")
-cd8_data_all_HIV=cd4_data_all_HIV[cd8_data_all_HIV$status=="HIV",]
+cd8_data_all_HIV=cd8_data_all_HIV[cd8_data_all_HIV$status=="HIV",]
 age5_cd8=cd8_data_all_HIV[!is.na(cd8_data_all_HIV$Scan.date.5yrs),]
 age5_cd8$lab.days.from.scan<- difftime(age5_cd8$Scan.date.5yrs,age5_cd8$lab.date.correct, units = c("days"))
 age5_cd8 <- age5_cd8[order(age5_cd8$SID, abs(age5_cd8$lab.days.from.scan), decreasing=FALSE),]
@@ -146,15 +152,16 @@ age5_cd8<-age5_cd8[!duplicated(age5_cd8$SID), c("ID","SID","CD8.count","CD8.perc
 write.table(age5, "/Users/frances/Dropbox/HIV/CD8_lab_before_age5_scan.csv", sep="\t")
 
 # CD4
-age5=cd4_data_all_HIV[!is.na(cd4_data_all_HIV$Scan.date.5yrs),]
-age5$lab.days.from.scan<- difftime(age5$Scan.date.5yrs,age5$lab.date.correct, units = c("days"))
+age5_cd4=cd4_data_all_HIV[!is.na(cd4_data_all_HIV$Scan.date.5yrs),]
+age5_cd4$lab.days.from.scan<- difftime(age5_cd4$Scan.date.5yrs,age5_cd4$lab.date.correct, units = c("days"))
 # sort ascending
-age5 <- age5[age5$lab.days.from.scan>=0,]#leave this out for closest dtae to scan which can be afterwards
-age5 <- age5[order(age5$SID, abs(age5$lab.days.from.scan), decreasing=FALSE),]
+#age5_cd4 <- age5_cd4[age5$lab.days.from.scan>=0,]#leave this out for closest dtae to scan which can be afterwards
+age5_cd4 <- age5_cd4[order(age5_cd4$SID, abs(age5_cd4$lab.days.from.scan), decreasing=FALSE),]
 # Exclude duplicates, keeping only min lab.days.from.scan
-age5<-age5[!duplicated(age5$SID), c("ID","SID","CD4.count","CD4.percent", "lab.date.correct","Scan.date.5yrs","lab.days.from.scan") ]
-write.table(age5, "/Users/frances/Dropbox/HIV/lab_before_age5_scan.csv", sep="\t")
-write.table(age5, "/Users/frances/Dropbox/HIV/lab_closest_to_age5_scan.csv", sep="\t")
+age5_cd4<-age5_cd4[!duplicated(age5_cd4$SID), c("ID","SID","CD4.count","CD4.percent", "lab.date.correct","Scan.date.5yrs","lab.days.from.scan") ]
+#write.table(age5, "/Users/frances/Dropbox/HIV/lab_before_age5_scan.csv", sep="\t")
+age5=merge(age5_cd4,age5_cd8,by="ID")
+write.table(age5, "/Users/frances/Dropbox/HIV/CD4CD8_closest_to_age5_scan.csv", sep="\t")
 
 # Check CD4 closest to scan date for 7 year olds
 age7=cd4_data_all_HIV[!is.na(cd4_data_all_HIV$Scan.date.7yrs),]
