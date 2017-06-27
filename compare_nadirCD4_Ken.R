@@ -45,7 +45,6 @@ length(unique(IDs3[!is.na(IDs3)])) #41 have same min CD4 percent date, 10 have d
 # 180 dont have as early as 2006-10-18 
 # 116 - drops later, 201 - drops later (kens date was not lowest, though his value was), 202 - drops later
 # 97 and 98 only out by few days
-# 116, 202 OK
 
 disagree=test_ken[as.Date(test_ken$nadir_cd4_percent_date,"%Y-%m-%d")!=test_ken$nadir_CD4percent_date,c('ID.x','PID')]
 colnames(disagree)[(names(disagree) == "ID.x")] <- "ID"
