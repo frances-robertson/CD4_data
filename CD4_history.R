@@ -3,7 +3,7 @@ library(plyr)
 
 source('~/Dropbox/HIV/CD4_data/fix_excel_dates.R')
 
-demog_data = read.xls ("/Users/frances/Dropbox/HIV/demographics-scan-dates-hiv-controls-master-excel-Jan-2017.xlsx",sep=",")
+demog = read.xls ("/Users/frances/Dropbox/HIV/demographics-scan-dates-hiv-controls-master-excel-Jan-2017.xlsx",sep=",")
 
 # These are all the spreadsheets I know of that contain CD4 data
 cd4_data_2017 = read.xls("/Volumes/MRI/UserFolders/Frances/!HIV_spreadsheets/2017/CD4_CD8_VL_20170131_final.xlsx",header=TRUE,sep=",")
@@ -92,43 +92,73 @@ table(d5$SID) # How many CD4 measurements for each subject?
 length(unique(d5$SID)) #178 - seems like too many subjects? Because there are CD4 measures for some controls in 2015/2016!
 
 # Use Martha's demog spreadsheet for ages/scan dates etc - note the 4 year excel fix, always be aware when data comes from a Mac!
-demog=demog_data[,c('ID','PID','Birth.date',"Scan.date.5yrs","Scan.date.7yrs","Scan.date.9yrs.Skyra",'status')]
+demog=demog[,c('ID','PID','Birth.date',"Scan.date.5yrs","Scan.date.7yrs","Scan.date.9yrs.Skyra",'status','cd4.count.enrol','cd4.percent.enrol')]
 demog$Birth.date = fix_excel_dates(as.Date(demog$Birth.date,"%B %d, %Y"))
 demog$Scan.date.5yrs = fix_excel_dates(as.Date(demog$Scan.date.5yrs,"%B %d, %Y"))
 demog$Scan.date.7yrs = fix_excel_dates(as.Date(demog$Scan.date.7yrs,"%B %d, %Y"))
 demog$Scan.date.9yrs.Skyra = fix_excel_dates(as.Date(demog$Scan.date.9yrs.Skyra,"%B %d, %Y"))
 
 # Check whether CD4 avail for all listed HIV+ children
-count(demog_data$status) # 85 HIV children
-cd4_data_all_HIV<-merge(x=d5, y=demog, by.x ="SID",by.y ="PID")
-cd4_data_all_HIV=cd4_data_all_HIV[cd4_data_all_HIV$status=="HIV",] #I have some CD4 data for 81 of 85 subjects, but nothing early for 17 of them
+count(demog$status) # 85 HIV children
+cd4_data_all_HIV<-merge(x=d5, y=demog, by.x ="SID",by.y ="PID") #all CD counts
+cd4_data_all_HIV=cd4_data_all_HIV[cd4_data_all_HIV$status=="HIV",] # get only HIV+ children
 cd4_data_all_HIV <- cd4_data_all_HIV[order(cd4_data_all_HIV$SID, cd4_data_all_HIV$lab.date.correct,decreasing=FALSE),]
 table(cd4_data_all_HIV$SID)
 length(unique(cd4_data_all_HIV$SID)) #I have some CD4 data for 85 of 85 
-#setdiff(HIV$ID,unique(cd4_data_all_HIV$ID)) #no CD4 values for 121, 139, 154 and PHRI?? First 3 not scanned again after 5 years and Ken has nadirs
 
 # Now have cd4_data_all_HIV to work with
 
+cd4_data_all_HIV$lab.days.from.5yr.scan<- difftime(cd4_data_all_HIV$Scan.date.5yrs,cd4_data_all_HIV$lab.date.correct, units = c("days"))
+cd4_data_all_HIV$lab.days.from.7yr.scan<- difftime(cd4_data_all_HIV$Scan.date.7yrs,cd4_data_all_HIV$lab.date.correct, units = c("days"))
+cd4_data_all_HIV$lab.days.from.9yr.Skyra.scan<- difftime(cd4_data_all_HIV$Scan.date.9yrs.Skyra,cd4_data_all_HIV$lab.date.correct, units = c("days"))
+
 ########################################################################
-# For CD4 nadirs
+# For CD4 nadirs and CD4s closest to each scan date
 # Find earliest and most recent lab dates for all HIV+ children and calculate child's age at these dates
-tt=ddply(cd4_data_all_HIV, c("ID"), summarise, 
+nadir=ddply(cd4_data_all_HIV, c("ID"), summarise, 
           earliest = min(lab.date.correct), 
           latest = max(lab.date.correct), 
-          nadir_CD4=min(CD4.count), 
-          nadir_CD4_percent=min(CD4.percent), 
-          nadir_CD4_date=lab.date.correct[which.min(CD4.count)], 
-          nadir_CD4percent_date=lab.date.correct[which.min(CD4.percent)])
+          nadir.CD4=min(CD4.count), 
+          nadir.CD4_percent=min(CD4.percent), 
+          nadir.CD4.date=lab.date.correct[which.min(CD4.count)], 
+          nadir.CD4.percent.date=lab.date.correct[which.min(CD4.percent)])
 
-#ddply(dd, ~group, subset, value==max(value), select=c('date2', 'value')) 
-test=merge(tt,demog)
+closest_to_5yr_scan=ddply(cd4_data_all_HIV, c("ID"), summarize, 
+          CD4.lab.days.from.5yr.scan=lab.days.from.5yr.scan[which.min(abs(lab.days.from.5yr.scan))],
+          CD4.count.5yr.scan=CD4.count[which.min(abs(lab.days.from.5yr.scan))],
+          CD4.percent.5yr.scan=CD4.percent[which.min(abs(lab.days.from.5yr.scan))],
+          CD4.lab.date.closest.5yr.scan=lab.date.correct[which.min(abs(lab.days.from.5yr.scan))])
+
+closest_to_7yr_scan=ddply(cd4_data_all_HIV, c("ID"), summarize,          
+          CD4.lab.days.from.7yr.scan=lab.days.from.7yr.scan[which.min(abs(lab.days.from.7yr.scan))],
+          CD4.count.7yr.scan=CD4.count[which.min(abs(lab.days.from.7yr.scan))],
+          CD4.percent.7yr.scan=CD4.percent[which.min(abs(lab.days.from.7yr.scan))],
+          CD4.lab.date.closest.7yr.scan=lab.date.correct[which.min(abs(lab.days.from.7yr.scan))])
+
+closest_to_9yr.Skyra_scan=ddply(cd4_data_all_HIV, c("ID"), summarize,          
+          CD4.lab.days.from.9yr.Skyra.scan=lab.days.from.9yr.Skyra.scan[which.min(abs(lab.days.from.9yr.Skyra.scan))],
+          CD4.count.9yr.Skyra.scan=CD4.count[which.min(abs(lab.days.from.9yr.Skyra.scan))],
+          CD4.percent.9yr.Skyra.scan=CD4.percent[which.min(abs(lab.days.from.9yr.Skyra.scan))],
+          CD4.lab.date.closest.9yr.Skyra.scan=lab.date.correct[which.min(abs(lab.days.from.9yr.Skyra.scan))])
+
+# Alternative is this
+#closest_to_5yr_scan=ddply(cd4_data_all_HIV, ~ID, subset, lab.days.from.5yr.scan==min(abs(lab.days.from.5yr.scan)),
+#      select=c('CD4.count', 'CD4.percent','lab.date.correct','lab.days.from.5yr.scan'))
+
+test=merge(demog,nadir,all = TRUE)
 test$wks_at_first_lab=difftime(test$earliest,as.Date(test$Birth.date,"%B %d, %Y"),units=c("weeks"))
 test$wks_at_last_lab=difftime(test$latest,as.Date(test$Birth.date,"%B %d, %Y"),units=c("weeks"))
-test$wks_at_nadir_CD4=difftime(test$nadir_CD4_date,as.Date(test$Birth.date,"%B %d, %Y"),units=c("weeks"))
-test$wks_at_nadir_CD4_percent=difftime(test$nadir_CD4percent_date,as.Date(test$Birth.date,"%B %d, %Y"),units=c("weeks"))
+test$wks_at_nadir_CD4=difftime(test$nadir.CD4.date,as.Date(test$Birth.date,"%B %d, %Y"),units=c("weeks"))
+test$wks_at_nadir_CD4_percent=difftime(test$nadir.CD4.percent.date,as.Date(test$Birth.date,"%B %d, %Y"),units=c("weeks"))
 
+test=merge(test,closest_to_5yr_scan,all = TRUE)
+test=merge(test,closest_to_7yr_scan,all = TRUE)
+test=merge(test,closest_to_9yr.Skyra_scan,all = TRUE)
+write.csv(test, "/Users/frances/Dropbox/HIV/spreadsheets/CD4_data.csv")#, sep="\t")
+
+#######################################################################################
 # Which ones am I missing data for?
-# Identify 18 children who were older than 12 weeks at their first avail CD4 measure
+# Identify children who were older than 12 weeks at their first avail CD4 measure
 missing_early=test[test$age_at_first_lab>12,c('ID', 'PID')] #none
 
 # Identify children who were more than 6 moths younger at their last avail CD4 measure than their last scan age
@@ -147,6 +177,9 @@ need_data=rbind(missing_early,missing_age9) # 153, 183, PHRI
 #need_data=unique(need_data)
 ## write out ones that I need CD4 data for
 #write.table(need_data, "/Users/frances/Dropbox/HIV/IDs_needing_CD4_history.csv", sep="\t")
+
+#
+# Older way of getting at scan values
 ########################################################################
 # Check CD4 and CD8 closest to scan date for 5 year olds
 
